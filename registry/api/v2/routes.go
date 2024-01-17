@@ -12,18 +12,19 @@ const (
 	RouteNameBlobUpload      = "blob-upload"
 	RouteNameBlobUploadChunk = "blob-upload-chunk"
 	RouteNameCatalog         = "catalog"
+	RouteNameMirror          = "mirror"
 )
 
 // Router builds a gorilla router with named routes for the various API
 // methods. This can be used directly by both server implementations and
 // clients.
 func Router() *mux.Router {
-	return RouterWithPrefix("")
+	return RouterWithPrefix("", false)
 }
 
 // RouterWithPrefix builds a gorilla router with a configured prefix
 // on all routes.
-func RouterWithPrefix(prefix string) *mux.Router {
+func RouterWithPrefix(prefix string, proxy bool) *mux.Router {
 	rootRouter := mux.NewRouter()
 	router := rootRouter
 	if prefix != "" {
@@ -33,6 +34,9 @@ func RouterWithPrefix(prefix string) *mux.Router {
 	router.StrictSlash(true)
 
 	for _, descriptor := range routeDescriptors {
+		if !proxy && descriptor.Name == RouteNameMirror {
+			continue
+		}
 		router.Path(descriptor.Path).Name(descriptor.Name)
 	}
 

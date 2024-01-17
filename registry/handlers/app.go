@@ -96,7 +96,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 	app := &App{
 		Config:  config,
 		Context: ctx,
-		router:  v2.RouterWithPrefix(config.HTTP.Prefix),
+		router:  v2.RouterWithPrefix(config.HTTP.Prefix, config.Proxy.RemoteURL != ""),
 		isCache: config.Proxy.RemoteURL != "",
 	}
 
@@ -110,6 +110,9 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 	app.register(v2.RouteNameBlob, blobDispatcher)
 	app.register(v2.RouteNameBlobUpload, blobUploadDispatcher)
 	app.register(v2.RouteNameBlobUploadChunk, blobUploadDispatcher)
+	if config.Proxy.RemoteURL != "" {
+		app.register(v2.RouteNameMirror, mirrorDispatcher)
+	}
 
 	// override the storage driver's UA string for registry outbound HTTP requests
 	storageParams := config.Storage.Parameters()

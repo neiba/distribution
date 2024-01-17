@@ -236,6 +236,12 @@ const (
         ...
     ]
 }`
+
+	mirrorBody = `{
+	"name": <name>,
+	"tag": <tag>,
+	"status": <status>,
+}`
 )
 
 // APIDescriptor exports descriptions of the layout of the v2 registry API.
@@ -1594,6 +1600,62 @@ var routeDescriptors = []RouteDescriptor{
 						},
 						Failures: []ResponseDescriptor{
 							invalidPaginationResponseDescriptor,
+						},
+					},
+				},
+			},
+		},
+	},
+
+	{
+		Name:        RouteNameMirror,
+		Path:        "/v2/mirrors/{name:" + reference.NameRegexp.String() + "}/{reference:" + reference.TagRegexp.String() + "}",
+		Entity:      "Mirror",
+		Description: "Create and retrieve mirrors.",
+		Methods: []MethodDescriptor{
+			{
+				Method:      "GET",
+				Description: "Fetch the mirror status identified by `name` and `reference` where `reference` should be a tag.",
+				Requests: []RequestDescriptor{
+					{
+						Headers: []ParameterDescriptor{
+							hostHeader,
+							authHeader,
+						},
+						PathParameters: []ParameterDescriptor{
+							nameParameterDescriptor,
+							referenceParameterDescriptor,
+						},
+						Successes: []ResponseDescriptor{
+							{
+								Description: "The mirror identified by `name` and `reference`. The contents can be used to identify and resolve resources required to run the specified image.",
+								StatusCode:  http.StatusOK,
+								Headers:     []ParameterDescriptor{
+									// digestHeader,
+								},
+								Body: BodyDescriptor{
+									ContentType: "<media type of mirror>",
+									Format:      mirrorBody,
+								},
+							},
+						},
+						Failures: []ResponseDescriptor{
+							{
+								Description: "The name or reference was invalid.",
+								StatusCode:  http.StatusBadRequest,
+								ErrorCodes: []errcode.ErrorCode{
+									ErrorCodeNameInvalid,
+									ErrorCodeTagInvalid,
+								},
+								Body: BodyDescriptor{
+									ContentType: "application/json; charset=utf-8",
+									Format:      errorsBody,
+								},
+							},
+							unauthorizedResponseDescriptor,
+							repositoryNotFoundResponseDescriptor,
+							deniedResponseDescriptor,
+							tooManyRequestsDescriptor,
 						},
 					},
 				},
