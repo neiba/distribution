@@ -1,11 +1,12 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
 	dcontext "github.com/docker/distribution/context"
-	v2 "github.com/docker/distribution/registry/api/v2"
+	"github.com/docker/distribution/registry/proxy"
 	"github.com/gorilla/handlers"
 )
 
@@ -19,7 +20,8 @@ func mirrorDispatcher(ctx *Context, r *http.Request) http.Handler {
 	mirrorHandler.Tag = reference
 
 	mhandler := handlers.MethodHandler{
-		"GET": http.HandlerFunc(mirrorHandler.GetImageMirror),
+		"GET":    http.HandlerFunc(mirrorHandler.GetImageMirror),
+		"DELETE": http.HandlerFunc(mirrorHandler.DeleteImageMirror),
 	}
 
 	return mhandler
@@ -36,15 +38,22 @@ type mirrorHandler struct {
 func (mh *mirrorHandler) GetImageMirror(w http.ResponseWriter, r *http.Request) {
 	dcontext.GetLogger(mh).Debug("GetImageMirror")
 
-	if mh.Tag == "notfound" {
-		mh.Errors = append(mh.Errors, v2.ErrorCodeNameUnknown)
-		return
-	}
+	im := mh.registry.(proxy.ProxyRegistry).MirrorImage(mh.Repository.Named(), mh.Tag)
+	p, _ := json.Marshal(im)
 
-	p := []byte(fmt.Sprintf("{\"name\":\"%s\",\"tag\":\"%s\",\"status\":\"mirrored\"}", mh.Repository.Named(), mh.Tag))
-	ct := "application/json"
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Length", fmt.Sprint(len(p)))
+	w.Write(p)
+}
 
-	w.Header().Set("Content-Type", ct)
+// GetImageMirror fetches the image manifest from the storage backend, if it exists.
+func (mh *mirrorHandler) DeleteImageMirror(w http.ResponseWriter, r *http.Request) {
+	dcontext.GetLogger(mh).Debug("DeleteImageMirror")
+
+	mh.registry.(proxy.ProxyRegistry).DeleteMirrorImage(mh.Repository.Named(), mh.Tag)
+	p := []byte("{OK}")
+
+	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Content-Length", fmt.Sprint(len(p)))
 	w.Write(p)
 }

@@ -230,7 +230,7 @@ func TestRouterWithBadCharacters(t *testing.T) {
 }
 
 func checkTestRouter(t *testing.T, testCases []routeTestCase, prefix string, deeplyEqual bool) {
-	router := RouterWithPrefix(prefix)
+	router := RouterWithPrefix(prefix, false)
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testCase := routeTestCase{

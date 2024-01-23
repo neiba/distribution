@@ -26,11 +26,12 @@ type proxyingRegistry struct {
 	scheduler      *scheduler.TTLExpirationScheduler
 	remoteURL      url.URL
 	authChallenger authChallenger
+	ProxyRegistry
 }
 
 // NewRegistryPullThroughCache creates a registry acting as a pull through cache
-func NewRegistryPullThroughCache(ctx context.Context, registry distribution.Namespace, driver driver.StorageDriver, config configuration.Proxy) (distribution.Namespace, error) {
-	remoteURL, err := url.Parse(config.RemoteURL)
+func NewRegistryPullThroughCache(ctx context.Context, registry distribution.Namespace, driver driver.StorageDriver, config *configuration.Configuration) (distribution.Namespace, error) {
+	remoteURL, err := url.Parse(config.Proxy.RemoteURL)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +94,12 @@ func NewRegistryPullThroughCache(ctx context.Context, registry distribution.Name
 		return nil, err
 	}
 
-	cs, err := configureAuth(config.Username, config.Password, config.RemoteURL)
+	cs, err := configureAuth(config.Proxy.Username, config.Proxy.Password, config.Proxy.RemoteURL)
+	if err != nil {
+		return nil, err
+	}
+
+	mc, err := NewMirrorController(ctx, config, registry)
 	if err != nil {
 		return nil, err
 	}
@@ -107,6 +113,7 @@ func NewRegistryPullThroughCache(ctx context.Context, registry distribution.Name
 			cm:        challenge.NewSimpleManager(),
 			cs:        cs,
 		},
+		ProxyRegistry: mc,
 	}, nil
 }
 
@@ -146,7 +153,7 @@ func (pr *proxyingRegistry) Repository(ctx context.Context, name reference.Named
 		return nil, err
 	}
 
-	remoteRepo, err := client.NewRepository(name, pr.remoteURL.String(), tr)
+	remoteRepo, err := client.NewRepository(name, pr.remoteURL.String(), tr, nil)
 	if err != nil {
 		return nil, err
 	}

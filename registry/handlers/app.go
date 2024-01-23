@@ -322,7 +322,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 
 	// configure as a pull through cache
 	if config.Proxy.RemoteURL != "" {
-		app.registry, err = proxy.NewRegistryPullThroughCache(ctx, app.registry, app.driver, config.Proxy)
+		app.registry, err = proxy.NewRegistryPullThroughCache(ctx, app.registry, app.driver, config)
 		if err != nil {
 			panic(err.Error())
 		}

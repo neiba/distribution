@@ -650,6 +650,14 @@ type Proxy struct {
 
 	// Password of the hub user
 	Password string `yaml:"password"`
+
+	Mirror Mirror `yaml:"mirror,omitempty"`
+}
+
+type Mirror struct {
+	Username string `yaml:"username"`
+
+	Password string `yaml:"password"`
 }
 
 // Parse parses an input configuration yaml document into a Configuration struct

@@ -129,7 +129,7 @@ func (r *registry) Repositories(ctx context.Context, entries []string, last stri
 }
 
 // NewRepository creates a new Repository for the given repository name and base URL.
-func NewRepository(name reference.Named, baseURL string, transport http.RoundTripper) (distribution.Repository, error) {
+func NewRepository(name reference.Named, baseURL string, transport http.RoundTripper, im *v2.ImageMirror) (distribution.Repository, error) {
 	ub, err := v2.NewURLBuilderFromString(baseURL, false)
 	if err != nil {
 		return nil, err
@@ -143,6 +143,7 @@ func NewRepository(name reference.Named, baseURL string, transport http.RoundTri
 		},
 		ub:   ub,
 		name: name,
+		im:   im,
 	}, nil
 }
 
@@ -150,6 +151,7 @@ type repository struct {
 	client *http.Client
 	ub     *v2.URLBuilder
 	name   reference.Named
+	im     *v2.ImageMirror
 }
 
 func (r *repository) Named() reference.Named {
@@ -166,6 +168,8 @@ func (r *repository) Blobs(ctx context.Context) distribution.BlobStore {
 			ub:     r.ub,
 			client: r.client,
 		}),
+
+		im: r.im,
 	}
 }
 
@@ -611,6 +615,8 @@ type blobs struct {
 
 	statter distribution.BlobDescriptorService
 	distribution.BlobDeleter
+
+	im *v2.ImageMirror
 }
 
 func sanitizeLocation(location, base string) (string, error) {
@@ -632,6 +638,29 @@ func (bs *blobs) Stat(ctx context.Context, dgst digest.Digest) (distribution.Des
 
 }
 
+func (bs *blobs) readAll(r io.Reader, dgst digest.Digest) ([]byte, error) {
+	b := make([]byte, 0, 512)
+	for {
+		if len(b) == cap(b) {
+			// Add more capacity (let append pick how much).
+			b = append(b, 0)[:len(b)]
+		}
+		n, err := r.Read(b[len(b):cap(b)])
+		b = b[:len(b)+n]
+
+		if bs.im != nil {
+			bs.im.UpdateImagePrecent(dgst, int64(len(b)))
+		}
+
+		if err != nil {
+			if err == io.EOF {
+				err = nil
+			}
+			return b, err
+		}
+	}
+}
+
 func (bs *blobs) Get(ctx context.Context, dgst digest.Digest) ([]byte, error) {
 	reader, err := bs.Open(ctx, dgst)
 	if err != nil {
@@ -639,7 +668,7 @@ func (bs *blobs) Get(ctx context.Context, dgst digest.Digest) ([]byte, error) {
 	}
 	defer reader.Close()
 
-	return ioutil.ReadAll(reader)
+	return bs.readAll(reader, dgst)
 }
 
 func (bs *blobs) Open(ctx context.Context, dgst digest.Digest) (io.ReadSeekCloser, error) {
